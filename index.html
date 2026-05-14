@@ -646,16 +646,35 @@ function setSyncStatus(cls, txt) {
 async function api(acao, dados = {}) {
   if (!API_URL) return { ok: false, erro: "URL nao configurada" };
   setSyncStatus("sync-saving","Salvando...");
-  try {
+  return new Promise((resolve) => {
+    const cbName = "cb_" + Date.now();
     const payload = encodeURIComponent(JSON.stringify({ acao, dados, token: (SESSION && SESSION.token) || "" }));
-    const res = await fetch(API_URL + "?payload=" + payload, { method: "GET", redirect: "follow" });
-    const json = await res.json();
-    setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
-    return json;
-  } catch(e) {
-    setSyncStatus("sync-error","Sem conexao");
-    return { ok:false, erro:e.message };
-  }
+    const url = API_URL + "?payload=" + payload + "&callback=" + cbName;
+    window[cbName] = function(json) {
+      delete window[cbName];
+      document.getElementById(cbName) && document.getElementById(cbName).remove();
+      setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
+      resolve(json);
+    };
+    const script = document.createElement("script");
+    script.id = cbName;
+    script.src = url;
+    script.onerror = function() {
+      delete window[cbName];
+      script.remove();
+      setSyncStatus("sync-error","Sem conexao");
+      resolve({ ok:false, erro:"Failed to fetch" });
+    };
+    document.head.appendChild(script);
+    setTimeout(function() {
+      if (window[cbName]) {
+        delete window[cbName];
+        script.remove();
+        setSyncStatus("sync-error","Timeout");
+        resolve({ ok:false, erro:"Timeout - verifique a conexao" });
+      }
+    }, 15000);
+  });
 }
 
 async function carregarTudo() {
