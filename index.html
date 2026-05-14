@@ -644,15 +644,16 @@ function setSyncStatus(cls, txt) {
 //  API
 // ============================================================
 async function api(acao, dados = {}) {
-  if (!API_URL) return { ok: false, erro: 'URL não configurada' };
-  setSyncStatus('sync-saving','Salvando...');
+  if (!API_URL) return { ok: false, erro: "URL nao configurada" };
+  setSyncStatus("sync-saving","Salvando...");
   try {
-    const res  = await fetch(API_URL, { method:'POST', body: JSON.stringify({ acao, dados, token: SESSION?.token }) });
+    const payload = encodeURIComponent(JSON.stringify({ acao, dados, token: (SESSION && SESSION.token) || "" }));
+    const res = await fetch(API_URL + "?payload=" + payload, { method: "GET", redirect: "follow" });
     const json = await res.json();
-    setSyncStatus(json.ok ? 'sync-ok' : 'sync-error', json.ok ? 'Sincronizado' : 'Erro');
+    setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
     return json;
   } catch(e) {
-    setSyncStatus('sync-error','Sem conexão');
+    setSyncStatus("sync-error","Sem conexao");
     return { ok:false, erro:e.message };
   }
 }
