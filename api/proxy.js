@@ -3,7 +3,7 @@
 
 const TENANT_ID  = '2cdf9b61-ba13-4086-a05d-1dd634a38669';
 const CLIENT_ID  = '35251d24-52c6-4bf3-a656-307d9afcb1a6';
-const CLIENT_SECRET = 'b6dad110-a556-410c-a3b4-51f9b1e49468';
+const CLIENT_SECRET = 'eqS8Q~HFrH2BdKEBgDVvE1MKS_IPjUx5WCptUbBM';
 const FILE_ID    = '6FB4BB02-160A-4392-A339-1B73CB10DDCA';
 const USER_ID    = 'sidney.alonso@xcloudgame.com';
 
