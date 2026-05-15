@@ -645,44 +645,34 @@ function setSyncStatus(cls, txt) {
 //  API
 // ============================================================
 async function api(acao, dados = {}) {
-  if (!API_URL) return { ok: false, erro: "URL nao configurada" };
-  setSyncStatus("sync-saving","Salvando...");
-  return new Promise((resolve) => {
-    const cbName = "cb_" + Date.now();
-    const payload = encodeURIComponent(JSON.stringify({ acao, dados, token: (SESSION && SESSION.token) || "" }));
-    const url = API_URL + "?payload=" + payload + "&callback=" + cbName;
-    window[cbName] = function(json) {
-      delete window[cbName];
-      document.getElementById(cbName) && document.getElementById(cbName).remove();
-      setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
-      resolve(json);
-    };
-    const script = document.createElement("script");
-    script.id = cbName;
-    script.src = url;
-    script.onerror = function() {
-      delete window[cbName];
-      script.remove();
-      setSyncStatus("sync-error","Sem conexao");
-      resolve({ ok:false, erro:"Failed to fetch" });
-    };
-    document.head.appendChild(script);
-    setTimeout(function() {
-      if (window[cbName]) {
-        delete window[cbName];
-        script.remove();
-        setSyncStatus("sync-error","Timeout");
-        resolve({ ok:false, erro:"Timeout - verifique a conexao" });
-      }
-    }, 15000);
-  });
+  setSyncStatus("sync-saving", "Salvando...");
+  try {
+    const res = await fetch("/api/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        acao,
+        dados,
+        token: (SESSION && SESSION.token) || ""
+      })
+    });
+    const json = await res.json();
+    setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
+    return json;
+  } catch (e) {
+    setSyncStatus("sync-error", "Sem conexão");
+    return { ok: false, erro: e.message };
+  }
 }
 
 async function carregarTudo() {
-  if (!API_URL) { setSyncStatus('sync-error','Sem conexão'); return; }
   setSyncStatus('sync-saving','Carregando...');
   try {
-    const res  = await fetch(API_URL + '?token=' + (SESSION?.token || ''));
+    const res  = await fetch("/api/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "carregarTudo", dados: {}, token: (SESSION && SESSION.token) || "" })
+    });
     const json = await res.json();
     if (json.ok) {
       clientes = (json.clientes||[]).map(fixNums);
@@ -1119,7 +1109,7 @@ async function testarConexao(){
   if(!API_URL){document.getElementById('cfg_resultado').innerHTML='<span style="color:#ef4444;">Configure o URL primeiro.</span>';return;}
   document.getElementById('cfg_resultado').innerHTML='<span style="color:#fbbf24;">Testando conexão...</span>';
   try{
-    const res=await fetch(API_URL+'?token='+(SESSION?.token||''));
+    const res=await fetch("/api/proxy", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({acao:"carregarTudo",dados:{},token:(SESSION&&SESSION.token)||""}) });
     const json=await res.json();
     if(json.ok){document.getElementById('cfg_resultado').innerHTML='<span style="color:#1dd4bf;font-weight:600;">✅ Conexão OK!</span>';setSyncStatus('sync-ok','Conectado');}
     else{document.getElementById('cfg_resultado').innerHTML='<span style="color:#ef4444;">⚠️ Erro: '+json.erro+'</span>';}
@@ -1134,12 +1124,12 @@ async function testarConexao(){
   if(API_URL) document.getElementById('cfg_url').value=API_URL;
 
   // Inicializa o sistema no Apps Script (cria abas se não existirem)
-  if(API_URL) {
-    fetch(API_URL, {
-      method:'POST',
-      body: JSON.stringify({ acao:'inicializar', dados:{}, token:'' })
-    }).catch(()=>{});
-  }
+  // Inicializar sistema via proxy
+  fetch("/api/proxy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ acao: "inicializar", dados: {}, token: "" })
+  }).catch(()=>{});
 
   // Verifica sessão salva
   if(SESSION && SESSION.token){
