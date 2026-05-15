@@ -645,37 +645,13 @@ function setSyncStatus(cls, txt) {
 // ============================================================
 async function api(acao, dados = {}) {
   setSyncStatus("sync-saving", "Salvando...");
-  const payload = JSON.stringify({
-    acao: acao,
-    dados: dados,
-    token: (SESSION && SESSION.token) || ""
-  });
-
-  // Modo Apps Script (servido pelo doGet)
-  if (typeof google !== "undefined" && google.script && google.script.run) {
-    return new Promise((resolve) => {
-      google.script.run
-        .withSuccessHandler(function(result) {
-          var json = typeof result === "string" ? JSON.parse(result) : result;
-          setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
-          resolve(json);
-        })
-        .withFailureHandler(function(err) {
-          setSyncStatus("sync-error", "Sem conexão");
-          resolve({ ok: false, erro: err.message || String(err) });
-        })
-        .processRequest(payload);
-    });
-  }
-
-  // Modo standalone (Vercel / arquivo local) — fallback direto para Apps Script via fetch
   try {
-    const GAS_URL = "https://script.google.com/a/macros/xcloudgame.com/s/AKfycbxnoXq5e0jJS3yy0Y3RPHUyDDZNEgrM_ejGxZ5E7icEspeajYKiZuiV9Rayq-huQwWh6g/exec";
-    const res = await fetch(GAS_URL + "?payload=" + encodeURIComponent(payload), {
-      method: "GET", redirect: "follow"
+    const res = await fetch("/api/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao, dados, token: (SESSION && SESSION.token) || "" })
     });
-    const text = await res.text();
-    const json = JSON.parse(text);
+    const json = await res.json();
     setSyncStatus(json.ok ? "sync-ok" : "sync-error", json.ok ? "Sincronizado" : "Erro");
     return json;
   } catch(e) {
@@ -1150,12 +1126,7 @@ async function testarConexao(){
 
   // Inicializa o sistema no Apps Script (cria abas se não existirem)
   // Inicializar sistema
-  if (typeof google !== "undefined" && google.script && google.script.run) {
-    google.script.run
-      .withSuccessHandler(function(){})
-      .withFailureHandler(function(){})
-      .processRequest(JSON.stringify({ acao: "inicializar", dados: {}, token: "" }));
-  }
+  api("inicializar", {}).catch(()=>{});
 
   // Verifica sessão salva
   if(SESSION && SESSION.token){
